@@ -18,17 +18,26 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ## k8s cluster monitor
 k8s具備基本的伺服器監控工具，主要工具如下：
 
-*    K8s Dashboard：插件工具，展示每個k8s集群上的資源利用情況，也是實現資源和環境管理與交互的主要工具。
+*    **K8s Dashboard**：插件工具，展示每個k8s集群上的資源利用情況，也是實現資源和環境管理與交互的主要工具。
 *    容器探針：container健康狀態診斷工具。
-*    Kubelet：每個Node上都運行著Kubelet，監控container的運行情況。Kubelet也是Master與各個Node通信的渠道。Kubelet能夠直接暴露cAdvisor中與container使用相關的個性化指標數據。
-*    cAdvisor：開源的單節點agent，負責監控容器資源使用情況與性能，採集機器上所有container的memory、網絡使用情況、文件系統和CPU等數據。
+*    **Kubelet**：每個Node上都運行著Kubelet，監控container的運行情況。Kubelet也是Master與各個Node通信的渠道。Kubelet能夠直接暴露cAdvisor中與container使用相關的個性化指標數據。
+:::warning
+kubelet default 監聽的port是10250，所以我們可以在Master或Slave上直接訪問
+```=
+curl https://127.0.0.1:10250/metrics/cadvisor -k
+```
+*    需使用 https
+*    metrics/cAdvisor 是 kubelet pod 相關的監控指標，它還有一個 metrics，是 kubelet 自身的監控指標
+*    ```-k``` 表示不驗證 kubelet 證書，因整個叢集都是使用自簽署證書，因此沒必要驗證
+::: 
+*    **cAdvisor**：開源的單節點agent，負責監控容器資源使用情況與性能，採集機器上所有container的memory、網絡使用情況、文件系統和CPU等數據。
 :::info
 cAdvisor雖然好用，但有些缺點：
 *    僅能監控基礎資源利用情況，無法分析應用的實際性能
 *    不具備長期存儲和趨勢分析能力。
 :::
 
-*    Kube-state-metrics：輪詢Kubernetes API，並將Kubernetes的結構化信息轉換為metrics。
+*    **Kube-state-metrics**：輪詢Kubernetes API，並將Kubernetes的結構化信息轉換為metrics。
 
 除了上述基本監控工具外，還有一些功能更多，更好用的Monitor，下面列舉幾個。
 
