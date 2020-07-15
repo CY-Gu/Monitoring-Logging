@@ -12,6 +12,13 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ```
 :::
 
+查看k8s cluster資訊
+```bash=
+$ kubectl config view
+```
+```bash=
+$ kubectl cluster-info
+```
 
 # Monitoring & Logging
 
@@ -60,6 +67,46 @@ cAdvisor雖然好用，但有些缺點：
 ### Metric-Server
 一個 k8s cluster可以有一個 Metric-Server監控資源，包括監控Node或Pod資訊。但須注意的是，Metric-Server是 **in memory** 的 monitor，他不會將監控的資料儲存到disk，所以無法獲得過去的監控資料。
 
+#### Metric-Server Install
+
+**Step 1**
+```bash=
+$ kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.3.6/components.yaml
+```
+創建完成後會多一個deploy
+```bash=
+╰──➤  kubectl get deploy -n kube-system
+NAME             READY   UP-TO-DATE   AVAILABLE   AGE
+coredns          2/2     2            2           5d20h
+metrics-server   1/1     1            1           2d11h
+```
+用```kubectl top no <node-name>```查看，會發現有error，這個error可能是因為node名稱找不到，或是CA認證沒過 (通常是這兩種原因)，這時只要在metrics-server deploy 加上一些參數就可以了
+```bash=
+$ kubectl edit deploy metrics-server -n kube-system
+
+...
+
+      containers:
+      - name: metrics-server
+        image: k8s.gcr.io/metrics-server-amd64:v0.3.5
+        ## 加入下面這些command
+        command:
+        - /metrics-server
+        - metrics-resolution=30s
+        - --kubelet-preferred-address-types=InternalIP,Hostname,InternalDNS,ExternalDNS,ExternalIP
+        - --kubelet-insecure-tls
+...
+```
+檢查一下，發現可以了
+```bash=
+╰──➤  kubectl top no        
+NAME       CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%   
+g8master   188m         4%     1827Mi          23%       
+g8node1    83m          4%     2201Mi          57%       
+g8node2    72m          3%     1607Mi          41% 
+```
+
+
 #### Monitor 如何監控
 
 我們都知道在Slave node中是透過```kubelet```來管理node，包括透過 apiserver 接收Master的指令以及在node中運行Pod等。而kubelet中還包含一個subcomponent，稱為  **cAdvisor** 或是 **Container Advisor** ，cAdvisor 負責從Pod中擷取performance metrics，並將收集到的數據以metrics-api的形式，透過Summary API expose給Metric-Server。
@@ -84,6 +131,20 @@ george@kmaster:~$ kubectl logs -f demopod
 kubectl logs -f <pod-name> <container-name>
 ```
 
+---
+
+## 查看API
+
+可用```curl http://localhost:6443 -k```查看API，但會發現
+```bash=
+$ gmaster@gmaster:~/k8s_demo/6-ingress$ curl http://localhost:6443 -k 
+Client sent an HTTP request to an HTTPS server.
+```
+無法存取到，這是因為沒有認證機制輔助。可以先用```kubectl proxy```，再透過proxy的8001 port連進去查看。另外開啟一個tmux，輸入```curl http://localhost:8001 -k```就看得到了
+![](https://i.imgur.com/UvyTqRZ.png)
+:::success
+```kubectl proxy```是由kubectl utility 創建的 http proxy service，用來存取kube-apiserver
+:::
 
 ---
 
